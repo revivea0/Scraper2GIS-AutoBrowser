@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.spec
+*.xlsx
+*.zip
+*.log
+scraper_config.json
+output/
+outputs/
+.DS_Store
+.impeccable/

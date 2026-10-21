@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Scraper 2GIS</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --canvas: #f4f5f7;
+            --surface: #ffffff;
+            --subtle: #f8f9fb;
+            --ink: #202632;
+            --muted: #667080;
+            --line: #e4e7ed;
+            --accent: #335cdb;
+            --accent-hover: #264bc0;
+            --accent-soft: #eef2ff;
+            --green: #226342;
+            --red: #ad3636;
+            --focus: #335cdb;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 14px;
+            color: var(--ink);
+            background: var(--canvas);
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-width: 320px; }
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        button, input, select { -webkit-tap-highlight-color: transparent; }
+        button:disabled { cursor: default; opacity: .55; }
+        :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+        ::selection { background: #dce5ff; color: var(--ink); }
+        svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .topbar { height: 66px; background: var(--surface); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
+        .brand { display: flex; align-items: center; gap: 11px; font-size: 17px; font-weight: 650; letter-spacing: -.4px; }
+        .brand-mark { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: white; background: var(--accent); }
+        .brand-mark svg { width: 19px; height: 19px; }
+        .brand-source { color: var(--muted); font-weight: 450; padding-left: 11px; border-left: 1px solid var(--line); margin-left: 1px; }
+        .byline { font-size: 12px; color: var(--muted); }
+        .byline strong { color: var(--ink); font-weight: 550; }
+        main { max-width: 1440px; margin: 0 auto; padding: 22px 30px 20px; }
+        .page-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 20px; }
+        h1 { margin: 0 0 7px; font-size: 26px; font-weight: 650; letter-spacing: -.7px; line-height: 1.2; }
+        .subtitle { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+        .status { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; color: var(--muted); font-size: 12px; }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #8b94a3; }
+        .status[data-state="running"] { color: var(--accent); }
+        .status[data-state="running"] .status-dot { background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+        .status[data-state="saved"] { color: var(--green); }
+        .status[data-state="saved"] .status-dot { background: var(--green); }
+        .status[data-state="error"] { color: var(--red); }
+        .status[data-state="error"] .status-dot { background: var(--red); }
+        @keyframes pulse { 50% { opacity: .35; } }
+        .workspace { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 22px; align-items: stretch; }
+        .settings { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+        h2 { margin: 0; font-size: 14px; font-weight: 650; line-height: 1.4; }
+        .section-title { margin-bottom: 16px; }
+        .field { display: block; margin-bottom: 12px; }
+        label { display: block; font-size: 12px; font-weight: 550; margin-bottom: 6px; }
+        input, select { height: 38px; width: 100%; background: var(--surface); color: var(--ink); border: 1px solid #d6dbe4; border-radius: 6px; padding: 0 11px; caret-color: var(--accent); transition: border-color .15s; }
+        input:hover, select:hover { border-color: #9ca7b9; }
+        input:focus, select:focus { border-color: var(--accent); outline: 2px solid #dce5ff; outline-offset: 0; }
+        input::placeholder { color: var(--muted); }
+        input:disabled, select:disabled { background: var(--subtle); color: var(--muted); }
+        input[aria-invalid="true"] { border-color: var(--red); }
+        .hint { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 6px 0 0; }
+        #detailContainer { display: none; }
+        #detailContainer.active { display: block; }
+        .save-settings { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+        .save-settings h2 { margin-bottom: 12px; }
+        .folder-button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--subtle); text-align: left; color: var(--muted); }
+        .folder-button:hover { border-color: #b5bfd0; background: #f0f3f8; }
+        .folder-copy { min-width: 0; flex: 1; }
+        .folder-label { display: block; font-size: 12px; font-weight: 550; color: var(--ink); margin-bottom: 3px; }
+        .path-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
+        .backup-row { margin-top: 12px; }
+        .text-button { border: 0; background: transparent; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 12px; }
+        .text-button:hover { color: var(--accent); }
+        #backupPathText { margin: 5px 0 0 24px; }
+        .start-btn, .stop-btn, .open-button { border: 0; border-radius: 7px; display: flex; align-items: center; justify-content: center; gap: 9px; font-weight: 550; min-height: 42px; padding: 10px 15px; transition: background .15s; }
+        .start-btn { color: white; background: var(--accent); width: 100%; margin-top: 18px; }
+        .start-btn:hover { background: var(--accent-hover); }
+        .stop-btn { display: none; background: #fbeeee; color: var(--red); width: 100%; margin-top: 18px; }
+        .stop-btn:hover { background: #f6dddd; }
+        .action-note { text-align: center; margin: 9px 0 0; color: var(--muted); font-size: 12px; }
+        #formError { display: none; font-size: 12px; color: var(--red); line-height: 1.5; margin: 12px 0 0; }
+        #formError:not(:empty) { display: block; }
+        .activity { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+        .metrics { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; display: grid; grid-template-columns: 1fr 1fr; padding: 20px 24px; }
+        .metric + .metric { border-left: 1px solid var(--line); padding-left: 25px; }
+        .metric-label { color: var(--muted); font-size: 12px; margin-bottom: 9px; }
+        .metric-number { font-size: 30px; letter-spacing: -1px; line-height: 1; font-weight: 550; font-variant-numeric: tabular-nums; }
+        .metric-unit { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 8px; letter-spacing: 0; }
+        .journal { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; flex: 1; display: flex; flex-direction: column; min-height: 370px; }
+        .journal-heading { padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+        .journal-caption { font-size: 12px; color: var(--muted); }
+        .journal-body { position: relative; flex: 1; min-height: 270px; }
+        .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 25px; }
+        .empty-state[hidden] { display: none; }
+        .empty-icon { color: #8c98ae; margin-bottom: 16px; }
+        .empty-icon svg { width: 37px; height: 37px; stroke-width: 1.25; }
+        .empty-state h3 { font-size: 14px; font-weight: 550; margin: 0 0 8px; }
+        .empty-state p { font-size: 12px; line-height: 1.7; color: var(--muted); max-width: 255px; margin: 0; }
+        #logs { position: absolute; inset: 0; overflow: auto; padding: 8px 20px 16px; font-size: 12px; line-height: 1.7; scrollbar-width: thin; scrollbar-color: #c6cdd8 transparent; }
+        #logs:empty { display: none; }
+        .log-row { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid #f0f2f6; }
+        .log-time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+        .log-message { overflow-wrap: anywhere; white-space: pre-wrap; }
+        .log-success { color: var(--green); }
+        .log-error { color: var(--red); }
+        .journal-footer { display: flex; align-items: center; gap: 7px; padding: 12px 22px; border-top: 1px solid var(--line); background: var(--subtle); font-size: 12px; color: var(--muted); }
+        .journal-footer svg { width: 14px; height: 14px; }
+        .completion { display: none; background: #edf6f0; border: 1px solid #c9dfd1; border-radius: 9px; padding: 14px 16px; align-items: center; gap: 12px; }
+        .completion.active { display: flex; }
+        .completion[data-error="true"] { background: #fff1f0; border-color: #edcdca; }
+        .completion[data-error="true"] > svg { color: var(--red); }
+        .completion[data-error="true"] .open-button { color: var(--red); background: #f5dedb; }
+        .completion > svg { color: var(--green); }
+        .completion-copy { min-width: 0; flex: 1; }
+        .completion-title { font-size: 13px; font-weight: 550; margin: 0 0 4px; }
+        .open-button { min-height: 34px; font-size: 12px; color: var(--green); background: #dbece1; white-space: nowrap; }
+        .open-button:hover { background: #cde3d5; }
+        .icon-button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); }
+        .icon-button:hover { background: #dbece1; color: var(--ink); }
+        .footnote { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; font-size: 12px; color: var(--muted); }
+        @media (min-height: 800px) and (min-width: 901px) { .workspace { min-height: calc(100vh - 235px); } }
+        @media (max-width: 900px) { main { padding: 24px 20px 18px; } .topbar { padding: 0 20px; } .workspace { grid-template-columns: 285px minmax(0, 1fr); gap: 16px; } .settings { padding: 19px; } .journal-caption { display: none; } .metric-unit { display: block; margin: 7px 0 0; } .completion { flex-wrap: wrap; } }
+        @media (max-width: 650px) { .topbar { height: 58px; } .byline { display: none; } main { padding: 22px 16px; } .page-heading { align-items: flex-start; flex-direction: column; gap: 13px; margin-bottom: 20px; } h1 { font-size: 24px; } .workspace { grid-template-columns: minmax(0, 1fr); } .settings { padding: 21px; } .activity { gap: 16px; } .journal { min-height: 360px; } .metric-unit { display: inline; margin-left: 8px; } .footnote { line-height: 1.5; } .footnote span:last-child { text-align: right; } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 10c0 4.5-6 10-6 10S6 14.5 6 10a6 6 0 1 1 12 0Z"/><circle cx="12" cy="10" r="2"/></svg></span>Scraper <span class="brand-source">2GIS</span></div>
+        <span class="byline">Разработано <strong>revivea</strong></span>
+    </header>
+    <main>
+        <div class="page-heading">
+            <div><h1>Сбор организаций</h1><p class="subtitle">Контакты из 2GIS в одной Excel-таблице.</p></div>
+            <div class="status" id="runStatus" data-state="idle" role="status"><span class="status-dot" aria-hidden="true"></span><span id="statusText">Готово к сбору</span></div>
+        </div>
+        <div class="workspace">
+            <section class="settings" aria-labelledby="settingsTitle">
+                <h2 class="section-title" id="settingsTitle">Параметры поиска</h2>
+                <form id="searchForm" onsubmit="startProcessing(); return false;" novalidate>
+                    <div class="field"><label for="cityInput">Город</label><input id="cityInput" value="Москва" placeholder="Например, Красноярск" autocomplete="off" data-lock required></div>
+                    <div class="field"><label for="queryInput">Рубрика или название</label><input id="queryInput" value="Кафе" placeholder="Например, кофейня" autocomplete="off" data-lock required></div>
+                    <div class="field"><label for="scopeSelect">Область поиска</label><select id="scopeSelect" onchange="toggleFilterInput()" data-lock><option value="city">Весь город</option><option value="district">Район</option><option value="street">Улица</option></select></div>
+                    <div class="field" id="detailContainer"><label for="detailInput" id="detailLabel">Название района</label><input id="detailInput" placeholder="Например, Центральный" data-lock></div>
+                    <div class="save-settings">
+                        <h2>Сохранение</h2>
+                        <button type="button" class="folder-button" onclick="selectFolder()" data-lock><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg><span class="folder-copy"><span class="folder-label">Папка для Excel</span><span class="path-text" id="folderPathText">Папка приложения</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+                        <div class="backup-row"><button type="button" class="text-button" onclick="selectBackup()" data-lock><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg>Продолжить из файла</button><span class="path-text" id="backupPathText"></span></div>
+                    </div>
+                    <p id="formError" role="alert"></p>
+                    <button type="submit" id="startBtn" class="start-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7V5Z"/></svg>Начать сбор</button>
+                    <button type="button" id="stopBtn" class="stop-btn" onclick="stopProcessing()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg><span id="stopLabel">Остановить и сохранить</span></button>
+                    <p class="action-note">Результат сохранится в .xlsx</p>
+                </form>
+            </section>
+            <section class="activity" aria-label="Ход сбора">
+                <div class="metrics" aria-live="polite">
+                    <div class="metric"><div class="metric-label">Собрано организаций</div><div class="metric-number"><span id="statCount">0</span><span class="metric-unit">записей</span></div></div>
+                    <div class="metric"><div class="metric-label">Текущая страница</div><div class="metric-number" id="statPage">—</div></div>
+                </div>
+                <div class="completion" id="completionModal" role="status">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path id="completionSymbol" d="m8 12 3 3 5-6"/></svg>
+                    <div class="completion-copy"><p class="completion-title" id="completionTitle">Файл сохранён</p><span class="path-text" id="completionPath"></span></div>
+                    <button type="button" class="open-button" id="completionAction" onclick="handleResult()">Открыть Excel</button>
+                    <button type="button" class="icon-button" onclick="closeModal()" aria-label="Скрыть уведомление"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+                </div>
+                <section class="journal" aria-labelledby="journalTitle">
+                    <div class="journal-heading"><h2 id="journalTitle">Журнал сбора</h2><span class="journal-caption">Обновляется автоматически</span></div>
+                    <div class="journal-body">
+                        <div class="empty-state" id="logsEmpty"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 40 40"><rect x="8" y="5" width="24" height="30" rx="3"/><path d="M14 13h12M14 20h12M14 27h7"/></svg></div><h3>Здесь появится ход сбора</h3><p>Укажите город и рубрику слева,<br>затем нажмите «Начать сбор».</p></div>
+                        <div id="logs" role="log" aria-label="События сбора" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
+                    </div>
+                    <div class="journal-footer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H5v20h14V7l-5-5ZM14 2v6h5M8 13h8M8 17h6"/></svg>В Excel: адреса, телефоны, сайты и соцсети</div>
+                </section>
+            </section>
+        </div>
+        <footer class="footnote"><span>Источник данных — 2GIS</span><span>Сбор выполняется в отдельном окне браузера</span></footer>
+    </main>
+    <script>
+        let saveDir = '';
+        let backupFile = '';
+        let latestFilepath = '';
+        let isProcessing = false;
+        let stopRequested = false;
+        let runHadError = false;
+        let saveFailed = false;
+
+        window.addEventListener('pywebviewready', async function() {
+            try {
+                const saved = await window.pywebview.api.get_saved_dir();
+                if (saved) {
+                    saveDir = saved;
+                    setPath('folderPathText', saved);
+                }
+            } catch (error) { addLog('Ошибка чтения настроек: ' + error); }
+        });
+
+        function setPath(id, path) {
+            const element = document.getElementById(id);
+            element.textContent = path;
+            element.title = path;
+        }
+
+        async function selectFolder() {
+            try {
+                const result = await window.pywebview.api.select_folder();
+                if (result) { saveDir = result; setPath('folderPathText', result); }
+            } catch (error) { addLog('Ошибка выбора папки: ' + error); }
+        }
+
+        async function selectBackup() {
+            try {
+                const result = await window.pywebview.api.select_backup();
+                if (result) {
+                    backupFile = result;
+                    setPath('backupPathText', result.split(/[\\/]/).pop());
+                    document.getElementById('backupPathText').title = result;
+                }
+            } catch (error) { addLog('Ошибка выбора файла: ' + error); }
+        }
+
+        function toggleFilterInput() {
+            const scope = document.getElementById('scopeSelect').value;
+            document.getElementById('detailContainer').classList.toggle('active', scope !== 'city');
+            document.getElementById('detailLabel').textContent = scope === 'street' ? 'Название улицы' : 'Название района';
+            document.getElementById('detailInput').placeholder = scope === 'street' ? 'Например, Мира' : 'Например, Центральный';
+        }
+
+        function setStatus(text, state) {
+            document.getElementById('statusText').textContent = text;
+            document.getElementById('runStatus').dataset.state = state;
+        }
+
+        function setBusy(busy) {
+            isProcessing = busy;
+            document.querySelectorAll('[data-lock]').forEach(element => element.disabled = busy);
+            document.getElementById('startBtn').style.display = busy ? 'none' : 'flex';
+            document.getElementById('stopBtn').style.display = busy ? 'flex' : 'none';
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('stopLabel').textContent = 'Остановить и сохранить';
+        }
+
+        function addLog(message) {
+            const logs = document.getElementById('logs');
+            const atBottom = logs.scrollHeight - logs.scrollTop - logs.clientHeight < 40;
+            const cleanMessage = String(message).replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').trim();
+            const isError = /ошибка|не отвечает/i.test(cleanMessage);
+            if (isError && isProcessing) runHadError = true;
+            const row = document.createElement('div');
+            row.className = 'log-row';
+            const time = document.createElement('span');
+            time.className = 'log-time';
+            time.textContent = new Date().toLocaleTimeString('ru-RU', {hour12: false});
+            const entry = document.createElement('span');
+            entry.className = 'log-message ' + (isError ? 'log-error' : cleanMessage.startsWith('+ ') ? 'log-success' : 'log-sys');
+            entry.textContent = cleanMessage;
+            row.append(time, entry);
+            logs.append(row);
+            const empty = document.getElementById('logsEmpty');
+            if (empty) empty.hidden = true;
+            if (atBottom) logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateStats(count, page) {
+            document.getElementById('statCount').textContent = count;
+            if (page > 0) document.getElementById('statPage').textContent = page;
+        }
+
+        async function startProcessing() {
+            if (isProcessing) return;
+            if (saveFailed) { showSaveError(); return; }
+            const cityInput = document.getElementById('cityInput');
+            const queryInput = document.getElementById('queryInput');
+            const city = cityInput.value.trim();
+            const query = queryInput.value.trim();
+            cityInput.setAttribute('aria-invalid', String(!city));
+            queryInput.setAttribute('aria-invalid', String(!query));
+            const error = document.getElementById('formError');
+            error.textContent = '';
+            if (!city || !query) {
+                error.textContent = 'Укажите город и рубрику для поиска.';
+                (!city ? cityInput : queryInput).focus();
+                return;
+            }
+            const scope = document.getElementById('scopeSelect').value;
+            if (scope !== 'city' && !document.getElementById('detailInput').value.trim()) {
+                error.textContent = scope === 'district' ? 'Укажите название района.' : 'Укажите название улицы.';
+                document.getElementById('detailInput').focus();
+                return;
+            }
+            if (!window.pywebview?.api) {
+                error.textContent = 'Запустите приложение через main.py, чтобы начать сбор.';
+                return;
+            }
+            stopRequested = false;
+            runHadError = false;
+            closeModal();
+            document.getElementById('logs').replaceChildren();
+            document.getElementById('logsEmpty').hidden = true;
+            updateStats(0, 1);
+            setBusy(true);
+            setStatus('Сбор выполняется', 'running');
+            try {
+                await window.pywebview.api.start_parsing(city, query, document.getElementById('scopeSelect').value, document.getElementById('detailInput').value.trim(), saveDir, backupFile);
+            } catch (failure) {
+                addLog('Ошибка запуска: ' + failure);
+                parsingStopped();
+            }
+        }
+
+        async function stopProcessing() {
+            if (stopRequested) return;
+            stopRequested = true;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('stopLabel').textContent = 'Сохраняем данные…';
+            setStatus('Завершаем сбор', 'stopping');
+            try { await window.pywebview.api.stop_parsing(); }
+            catch (error) {
+                stopRequested = false;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('stopLabel').textContent = 'Остановить и сохранить';
+                setStatus('Не удалось остановить', 'error');
+                addLog('Ошибка остановки: ' + error);
+            }
+        }
+
+        function parsingStopped() {
+            setBusy(false);
+            setStatus(runHadError ? 'Завершено с ошибкой' : stopRequested ? 'Сбор остановлен' : 'Сбор завершён', runHadError ? 'error' : 'idle');
+            backupFile = '';
+            setPath('backupPathText', '');
+        }
+
+        function showCompletionDialog(filepath) {
+            saveFailed = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('completionModal').dataset.error = 'false';
+            document.getElementById('completionTitle').textContent = 'Файл сохранён';
+            document.getElementById('completionAction').textContent = 'Открыть Excel';
+            document.getElementById('completionSymbol').setAttribute('d', 'm8 12 3 3 5-6');
+            latestFilepath = filepath;
+            setPath('completionPath', filepath.split(/[\\/]/).pop());
+            document.getElementById('completionPath').title = filepath;
+            document.getElementById('completionModal').classList.add('active');
+            if (!runHadError) setStatus(stopRequested ? 'Остановлено · файл сохранён' : 'Файл сохранён', 'saved');
+            else setStatus('Прогресс сохранён · есть ошибки', 'error');
+        }
+
+        function showSaveError() {
+            saveFailed = true;
+            document.getElementById('startBtn').disabled = true;
+            const notice = document.getElementById('completionModal');
+            notice.dataset.error = 'true';
+            notice.classList.add('active');
+            document.getElementById('completionTitle').textContent = 'Данные ещё не сохранены';
+            setPath('completionPath', 'Они остаются в памяти. Выберите другую папку.');
+            document.getElementById('completionAction').textContent = 'Сохранить в другую папку';
+            document.getElementById('completionSymbol').setAttribute('d', 'M12 7v6M12 16h.01');
+            setStatus('Ошибка сохранения', 'error');
+        }
+
+        async function handleResult() {
+            if (!saveFailed) { await openExcel(); return; }
+            const button = document.getElementById('completionAction');
+            button.disabled = true;
+            try {
+                const folder = await window.pywebview.api.select_folder();
+                if (folder) {
+                    saveDir = folder;
+                    setPath('folderPathText', folder);
+                    const filepath = await window.pywebview.api.retry_save(folder);
+                    if (filepath) showCompletionDialog(filepath);
+                }
+            } catch (error) { addLog('Ошибка повторного сохранения: ' + error); }
+            finally { button.disabled = false; }
+        }
+
+        function closeModal() {
+            if (!saveFailed) document.getElementById('completionModal').classList.remove('active');
+        }
+
+        async function openExcel() {
+            if (!latestFilepath) return;
+            try { await window.pywebview.api.open_excel(latestFilepath); }
+            catch (error) { addLog('Ошибка открытия Excel: ' + error); }
+        }
+    </script>
+</body>
+</html>

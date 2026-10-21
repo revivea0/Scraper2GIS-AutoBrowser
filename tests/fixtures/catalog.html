@@ -1,0 +1,63 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><body>
+<div id="cards"></div><nav id="pagination" aria-label="Страницы"></nav>
+<script>
+const base = '/search/fixture';
+let current = Number(location.pathname.match(/\/page\/(\d+)/)?.[1] || 1);
+const selected = location.pathname.match(/\/firm\/(\d+)/)?.[1];
+const pages = [['101', '102'], ['201', '202'], ['301']];
+function load(id) { fetch('https://catalog.api.2gis.ru/3.0/items/byid?id=' + id + '_session').catch(() => {}); }
+function render(pageNumber) {
+    current = pageNumber;
+    const cards = document.getElementById('cards');
+    cards.replaceChildren();
+    for (const id of pages[current - 1] || []) {
+        for (let duplicate = 0; duplicate < 2; duplicate++) {
+            const a = document.createElement('a');
+            a.href = base + (current > 1 ? '/page/' + current : '') + '/firm/' + id;
+            a.textContent = 'Организация ' + id;
+            a.onclick = event => {
+                event.preventDefault();
+                if (!(window.delayFailedUrl && id === '102')) history.pushState({}, '', a.href);
+                load(id);
+            };
+            cards.append(a, document.createElement('br'));
+        }
+    }
+    const ad = document.createElement('a');
+    ad.href = 'https://link.2gis.ru/ad?https://2gis.ru/firm/999';
+    ad.textContent = 'Реклама';
+    cards.append(ad);
+    const pagination = document.getElementById('pagination');
+    pagination.replaceChildren();
+    for (let number = 1; number <= pages.length; number++) {
+        if (number === current) {
+            const active = document.createElement('span');
+            active.setAttribute('aria-current', 'page');
+            active.textContent = number;
+            pagination.append(active);
+        } else {
+            const a = document.createElement('a');
+            a.textContent = number;
+            a.href = base + '/page/' + number;
+            a.onclick = event => {
+                event.preventDefault();
+                const activeFirm = location.pathname.match(/\/firm\/(\d+)/)?.[1];
+                history.pushState({}, '', a.href + (activeFirm ? '/firm/' + activeFirm : ''));
+                if (window.fixtureDelay) {
+                    const active = document.querySelector('[aria-current="page"]');
+                    active.textContent = number;
+                    const cards = document.getElementById('cards');
+                    cards.replaceChildren(...Array.from(cards.childNodes).reverse());
+                }
+                if (window.fixtureEmpty) document.getElementById('cards').textContent = 'Ничего не найдено';
+                fetch('https://catalog.api.2gis.ru/3.0/items?page=' + number)
+                    .then(response => response.json())
+                    .then(() => setTimeout(() => render(number), window.fixtureDelay || 0));
+            };
+            pagination.append(a);
+        }
+    }
+}
+render(current);
+if (selected) load(selected);
+</script></body></html>
