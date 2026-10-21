@@ -21,7 +21,7 @@ def main():
                '--recursive-copy-metadata', 'playwright', '--recursive-copy-metadata', 'pywebview',
                '--recursive-copy-metadata', 'openpyxl']
     if sys.platform == 'linux':
-        command += ['--hidden-import', 'webview.platforms.qt', '--collect-all', 'PySide6']
+        command += ['--hidden-import', 'webview.platforms.qt']
     subprocess.run(command + ['main.py'], check=True)
     if sys.platform == 'darwin':
         app = ROOT / 'dist' / (NAME + '.app')
